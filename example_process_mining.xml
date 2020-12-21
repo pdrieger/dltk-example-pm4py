@@ -1,0 +1,115 @@
+<form script="plot.js">
+  <label>Example for Process Mining with PM4Py</label>
+  <row>
+    <panel>
+      <html>
+        <img src="/static/app/$env:app$/icons/mining.png" style="width:5%; height:5%; float:right;"/>
+        <h1>Information on Process Mining</h1>
+        <p>This example shows how you can use the python library <a href="https://pm4py.fit.fraunhofer.de/" target="_blank">PM4Py</a> - developed and maintained by the <a href="https://www.fit.fraunhofer.de/en.html" target="_blank">Fraunhofer Institute FIT</a>
+        </p>
+        <p>Please install the <a href="https://github.com/splunk/process_flow_diagram_app">Process Flow Diagram App for Splunk</a> for the process diagram visualization below to work.</p>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel>
+      <viz type="process_flow_diagram_app.process_flow_diagram">
+        <search>
+          <done>
+            <condition match="$job.resultCount$&gt;0">
+              <set token="fit_finalized">process_mining</set>
+            </condition>
+            <condition>
+              <unset token="fit_finalized"></unset>
+            </condition>
+          </done>
+          <query>index=_internal uri=* user=*
+| stats count by _time uri user
+| eval start_timestamp=strftime(_time, "%Y%m%dT%H%M%S")
+| rename uri as case:concept:name user as concept:name
+| eval time:timestamp = start_timestamp
+| fit MLTKContainer algo=process_mining case:concept:name,concept:name,start_timestamp,time:timestamp into process_mining</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="height">640</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.aggregationMethod">mean</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.layoutEdgeSep">80</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.layoutNodeSep">50</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.layoutOrientation">TB</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.linkVertices">true</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.modeDOT">true</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.stepsMaxColor">#003D5E</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.stepsMinColor">#ECF8FF</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.stepsMode">gradient</option>
+        <option name="process_flow_diagram_app.process_flow_diagram.variableStrokeWidth">true</option>
+        <option name="trellis.enabled">0</option>
+        <option name="trellis.scales.shared">1</option>
+        <option name="trellis.size">medium</option>
+      </viz>
+    </panel>
+  </row>
+  <row depends="$fit_finalized$">
+    <panel>
+      <html>
+        <h1>Petri Net derived from Inductive Miner</h1>
+        <p>The inductive miner can help to derive the structure of processes from data, e.g. in form of a petri net or process tree. <a href="https://pm4py.fit.fraunhofer.de/documentation#item-3-2">More information.</a>
+        </p>
+        <div>
+          <img width="100%" height="auto" id="plot_matrix" src=""/>
+        </div>
+      </html>
+    </panel>
+    <panel>
+      <html>
+        <h1>Directly-Follows Graph (DFG)</h1>
+        <p>Process models modeled using Petri nets have a well-defined semantic: a process execution starts from the places included in the initial marking and finishes at the places included in the final marking. <a href="https://pm4py.fit.fraunhofer.de/documentation#item-3-4">More information.</a>
+        </p>
+        <div>
+          <img width="100%" height="auto" id="plot_pairplot" src=""/>
+        </div>
+      </html>
+    </panel>
+  </row>
+  <row>
+    <panel depends="$fit_finalized$">
+      <table>
+        <search>
+          <query>
+| summary $fit_finalized$
+| spath input=summary output=plot path=model 
+| eval text=split(plot,", ")
+| mvexpand text
+| table text
+| rex field=text "\"b'(?&lt;plots&gt;.*)'\""
+| rex field=text "'(?&lt;token&gt;\w+)':"
+| table token plots
+| transpose 0 header_field=token
+| table plot_*</query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <sampleRatio>1</sampleRatio>
+          <done>
+            <condition match="$job.resultCount$&gt;0">
+              <set token="plot_matrix">$result.plot_matrix$</set>
+              <set token="plot_pairplot">$result.plot_pairplot$</set>
+            </condition>
+            <condition>
+              <unset token="plot_matrix"></unset>
+              <unset token="plot_pairplot"></unset>
+            </condition>
+          </done>
+        </search>
+        <option name="count">1</option>
+        <option name="dataOverlayMode">none</option>
+        <option name="drilldown">none</option>
+        <option name="percentagesRow">false</option>
+        <option name="rowNumbers">true</option>
+        <option name="totalsRow">false</option>
+        <option name="wrap">true</option>
+      </table>
+    </panel>
+  </row>
+</form>
